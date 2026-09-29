@@ -25,7 +25,7 @@ on:
     branches: [main]
 
 env:
-  CANDIDATE_DATA_VERSION: v1  # data version trained for the PR branch (baseline always uses main's own default)
+  CANDIDATE_DATA_VERSION: v2  # data version trained for the PR branch (baseline always uses main's own default)
   MODEL_NAME: sdg-model
 
 jobs:
