@@ -43,7 +43,7 @@ def test_run_training_produces_metrics_model_and_mlflow_run(tmp_path, monkeypatc
     assert isinstance(run_id, str) and run_id
 
     metrics = json.loads((output_dir / "train_metrics.json").read_text())
-    assert set(metrics) == {"accuracy", "precision", "recall", "f1", "roc_auc"}
+    assert set(metrics) == {"accuracy", "precision", "recall", "f1", "roc_auc", "recall_D"}
 
     model_info = json.loads((output_dir / "model_info.json").read_text())
     assert model_info["mlflow_run_id"] == run_id

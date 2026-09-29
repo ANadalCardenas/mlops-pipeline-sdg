@@ -4,7 +4,7 @@ import sys
 import argparse
 
 
-METRICS = ["accuracy", "precision", "recall", "f1", "roc_auc"]
+METRICS = ["accuracy", "precision", "recall", "f1", "roc_auc", "recall_D"]
 
 
 def compare_metrics(
@@ -22,6 +22,10 @@ def compare_metrics(
 
     metrics = {}
     for m in METRICS:
+        # Skip metrics missing from either run, e.g. a baseline trained with older code
+        # that didn't compute recall_D yet
+        if m not in baseline or m not in candidate:
+            continue
         b, c = baseline[m], candidate[m]
         delta = c - b
         if delta > 0.0001:
@@ -62,13 +66,19 @@ def _write_pr_comment(
 
     rows = ""
     labels = {"accuracy": "Accuracy", "precision": "Precision", "recall": "Recall",
-              "f1": "F1", "roc_auc": "ROC AUC"}
+              "f1": "F1", "roc_auc": "ROC AUC", "recall_D": "Recall D"}
     for key, label in labels.items():
+        if key not in m:
+            continue
         v = m[key]
         rows += (f"| {label:<9} | {v['baseline']:.4f}   | {v['candidate']:.4f}    "
                  f"| {fmt_delta(v['delta']):<7} | {v['status']:<8} |\n")
 
     dagshub_line = (f"- [View experiment on DagsHub]({dagshub_url})\n" if dagshub_url else "")
+    recall_d_line = (
+        "Recall D is the share of real class D rows predicted as D (informative only, it doesn't affect the verdict).\n"
+        if "recall_D" in m else ""
+    )
 
     f1_b, f1_c = m["f1"]["baseline"], m["f1"]["candidate"]
     auc_b, auc_c = m["roc_auc"]["baseline"], m["roc_auc"]["candidate"]
@@ -85,7 +95,7 @@ def _write_pr_comment(
 |-----------|----------|-----------|---------|----------|
 {rows}
 Precision, recall and F1 are macro-averaged over the classes; ROC AUC is one-vs-rest, macro-averaged.
-
+{recall_d_line}
 ### F1 Score
 
 ```mermaid
