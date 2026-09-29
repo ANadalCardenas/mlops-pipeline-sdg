@@ -158,8 +158,12 @@ The database is taken from `--db-url` or the `DATABASE_URL` environment variable
 # Build the inference image
 docker build -f Dockerfile.inference -t sdg-inference .
 
-# Run one inference; the SQLite file is kept in ./predictions on the host
+# Run one inference; the SQLite file is kept in ./predictions on the host.
+# --user runs the container as your user, so predictions.db is owned by you and not by root;
+# HOME=/tmp gives that user a writable home directory inside the container
 docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
   --env-file .env \
   -v "$(pwd)/predictions:/app/predictions" \
   sdg-inference \
