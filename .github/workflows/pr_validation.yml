@@ -33,6 +33,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
+      contents: read        # required to check out the code (the repo is private)
       pull-requests: write  # required to post the metrics comment on the PR
     steps:
       - uses: actions/checkout@v4
