@@ -6,6 +6,8 @@ Training a classifier is the easy part. The harder problem is what happens *afte
 
 This project builds the infrastructure that answers those questions automatically, on every pull request.
 
+The model is a multiclass `LogisticRegression`: it outputs one probability per class (A, B, C, D) and predicts the most likely one.
+
 ---
 
 ## Pipeline overview
