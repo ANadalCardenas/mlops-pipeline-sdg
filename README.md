@@ -73,6 +73,7 @@ flowchart TD
 │   └── orchestration.py   # Single CLI entrypoint for the full pipeline
 ├── data/
 │   ├── v1.dvc             # Pointer to v1 dataset in R2
+│   ├── v2.dvc             # Pointer to v2 dataset in R2
 │   └── generate_v2.py     # Builds the drifted v2 dataset from v1
 ├── Dockerfile.inference   # Image for running Production model inference
 └── .github/workflows/
