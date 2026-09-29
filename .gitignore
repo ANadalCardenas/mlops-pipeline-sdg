@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+docs/
+mlruns/
+models/
+predictions/
+reports/
+.env
+data/v1/
+data/v2/
+.dvc/config.local

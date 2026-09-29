@@ -1,0 +1,14 @@
+# Inference image: loads sdg-model@Production from the MLflow Model Registry,
+# predicts on the JSON passed via --input, and inserts the result into the
+# database given by DATABASE_URL (default: SQLite file predictions/predictions.db).
+# Mount a host directory at /app/predictions to persist the SQLite file across runs.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ src/
+
+ENTRYPOINT ["python", "-m", "src.inference.predict"]

@@ -1,0 +1,5 @@
+[core]
+    remote = storage
+['remote "storage"']
+    url = s3://mlops-sdg-dvc
+    endpointurl = https://62dea9498eca3d98808776c7baadd969.r2.cloudflarestorage.com

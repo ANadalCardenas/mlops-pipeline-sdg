@@ -1,0 +1,29 @@
+# GitHub Actions workflow that runs the unit test suite (tests/) on every pull
+# request event (opened, synchronize, reopened) — i.e. on PR creation and on
+# every new commit pushed to an existing PR.
+#
+# The tests are hermetic: no DVC data pull and no MLflow/DagsHub secrets are
+# needed, since the test suite mocks the dataset and points MLflow at a local
+# file store under a temp directory.
+
+name: Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest
