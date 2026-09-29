@@ -27,7 +27,7 @@ import mlflow.sklearn    # MLflow's sklearn integration: log_model and save_mode
 from mlflow.models import infer_signature  # infers input/output schema from real data to document the model API
 from sklearn.model_selection import train_test_split  # splits data into train and test sets
 
-# Internal modules — each one handles a single responsibility
+# Internal modules: each one handles a single responsibility
 from src.data.load_data import load_dataset                          # reads the versioned CSV
 from src.evaluation.evaluate import evaluate_model, generate_evaluation_plots  # metrics + plots
 from src.features.build_features import EXCLUDED_COLUMNS, TARGET, build_training_pipeline  # builds the untrained pipeline
@@ -63,7 +63,7 @@ def run_training(data_version: str, output_dir: str, experiment_name: str, run_n
     # we pass X_train so the pipeline can detect column types (numeric vs categorical)
     pipeline = build_training_pipeline(X_train)
 
-    # fit() is a built-in sklearn Pipeline method — it runs fit_transform on every preprocessing
+    # fit() is a built-in sklearn Pipeline method: it runs fit_transform on every preprocessing
     # step and then fit on the final LogisticRegression estimator, all in one call
     pipeline.fit(X_train, y_train)
 
@@ -111,7 +111,7 @@ def run_training(data_version: str, output_dir: str, experiment_name: str, run_n
         # Serialize and upload the fitted sklearn pipeline so it can be loaded later with mlflow.sklearn.load_model
         mlflow.sklearn.log_model(pipeline, artifact_path="model", signature=signature, input_example=X_train.iloc[:5])
 
-    # Remove any previous local copy before saving — MLflow refuses to overwrite a non-empty directory
+    # Remove any previous local copy before saving: MLflow refuses to overwrite a non-empty directory
     local_model_path = f"models/{data_version}/model_latest"
     if os.path.exists(local_model_path):
         shutil.rmtree(local_model_path)

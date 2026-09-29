@@ -69,7 +69,7 @@ if __name__ == "__main__":
         if args.model_stage and args.model_stage != "None":
             client = mlflow.MlflowClient()
             # Aliases replace the deprecated stages API (removed in MLflow 3.0).
-            # An alias is a named pointer to a specific version — setting it on a new version
+            # An alias is a named pointer to a specific version: setting it on a new version
             # automatically moves the pointer away from the previous one, achieving the same
             # "only one active version per stage" behaviour without the deprecation warning.
             client.set_registered_model_alias(

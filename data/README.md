@@ -1,8 +1,8 @@
-# 📁 Data Versions Overview
+# Data Versions Overview
 
 ### v1. Baseline Dataset
 
-* `v1/sdg.csv`: 500 rows, 30 anonymised features (`F1`–`F30`), a `Timestamp` and a 4-class `Target` (A, B, C, D)
+* `v1/sdg.csv`: 500 rows, 30 anonymised features (`F1` to `F30`), a `Timestamp` and a 4-class `Target` (A, B, C, D)
 * Represents initial system deployment
 * Used to train the first production model
 

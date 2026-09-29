@@ -4,7 +4,7 @@ enabling full traceability between a saved model artifact and the exact code
 revision that produced it.
 
 Public API:
-    get_git_sha() -> str   — returns the short commit SHA via subprocess
+    get_git_sha() -> str   : returns the short commit SHA via subprocess
 """
 
 import subprocess

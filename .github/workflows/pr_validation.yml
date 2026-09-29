@@ -1,6 +1,6 @@
 # GitHub Actions CI workflow.
 #
-# On every pull_request event (opened, synchronize, reopened) — job `validate`:
+# On every pull_request event (opened, synchronize, reopened), job `validate`:
 #   1. Checks out the repo and sets up Python 3.11
 #   2. Installs dependencies from requirements.txt
 #   3. Pulls versioned data from Cloudflare R2 via DVC
@@ -13,7 +13,7 @@
 #   6. Only if the candidate won: moves the Staging alias to it
 #   7. Always posts the validation report as a PR comment and uploads reports/
 #
-# On every push to main (i.e. a merged PR) — job `promote`:
+# On every push to main (i.e. a merged PR), job `promote`:
 #   Moves the Production alias to the version currently marked as Staging.
 
 name: PR Validation
@@ -52,7 +52,7 @@ jobs:
           AWS_S3_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
         run: dvc pull
 
-      # ── Train candidate (PR branch), registered without alias ───────────
+      # Train candidate (PR branch), registered without alias
       - name: Train candidate model
         env:
           MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
@@ -66,7 +66,7 @@ jobs:
             --output-dir reports/candidate \
             --register-model
 
-      # ── Train baseline (main branch, separate folder) ────────────────────
+      # Train baseline (main branch, separate folder)
       - name: Checkout main for baseline
         uses: actions/checkout@v4
         with:
@@ -96,7 +96,7 @@ jobs:
             --run-name baseline-pr-${{ github.event.pull_request.number }} \
             --output-dir ../reports/baseline
 
-      # ── Compare (fails the job if the candidate is not BETTER) ───────────
+      # Compare (fails the job if the candidate is not BETTER)
       - name: Compare candidate vs baseline
         run: |
           python src/evaluation/compare.py \
@@ -108,7 +108,7 @@ jobs:
             --baseline-version v1 \
             --fail-if-worse
 
-      # ── Only reached when the comparison passed ──────────────────────────
+      # Only reached when the comparison passed
       - name: Mark candidate as Staging
         env:
           MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
@@ -122,7 +122,7 @@ jobs:
           print(f"${{ env.MODEL_NAME }} v{version} -> Staging")
           EOF
 
-      # ── Post or update PR comment (also when the comparison failed) ──────
+      # Post or update PR comment (also when the comparison failed)
       - name: Post validation report
         if: always()
         uses: actions/github-script@v7
@@ -165,7 +165,7 @@ jobs:
           name: reports-pr-${{ github.event.pull_request.number }}
           path: reports/
 
-  # ── On merge to main: Staging → Production ──────────────────────────────
+  # On merge to main: Staging → Production
   # No checkout, DVC or training needed: it only moves an alias in the registry
   promote:
     if: github.event_name == 'push'

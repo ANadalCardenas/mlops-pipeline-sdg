@@ -7,7 +7,7 @@ target and the excluded columns below), then constructs a ColumnTransformer with
   - Categorical branch: SimpleImputer(strategy="most_frequent") + OneHotEncoder
 
 Wraps the transformer in a Pipeline with LogisticRegression(max_iter=1000) as
-the final estimator. Does NOT fit the pipeline — fitting happens in train.py.
+the final estimator. Does NOT fit the pipeline: fitting happens in train.py.
 
 Public API:
     TARGET, EXCLUDED_COLUMNS

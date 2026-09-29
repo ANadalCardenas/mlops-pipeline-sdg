@@ -1,5 +1,5 @@
 # GitHub Actions workflow that runs the unit test suite (tests/) on every pull
-# request event (opened, synchronize, reopened) — i.e. on PR creation and on
+# request event (opened, synchronize, reopened), i.e. on PR creation and on
 # every new commit pushed to an existing PR.
 #
 # The tests are hermetic: no DVC data pull and no MLflow/DagsHub secrets are

@@ -38,17 +38,17 @@ def create_v2(df: pd.DataFrame):
 
     print("Adding distribution drift...")
 
-    # CHANGE 1: Class distribution drift — the minority class D becomes more frequent
+    # CHANGE 1: Class distribution drift, the minority class D becomes more frequent
     print("Applying Target distribution drift...")
     extra_d = v2_df[v2_df["Target"] == "D"].sample(frac=2.0, replace=True, random_state=RANDOM_SEED).copy()
     extra_d["F22"] = extra_d["F22"] + rng.normal(scale=1.0, size=len(extra_d))
     v2_df = pd.concat([v2_df, extra_d], ignore_index=True)
 
-    # CHANGE 2: F22 drift — a small offset plus extra noise (e.g. sensor recalibration)
+    # CHANGE 2: F22 drift, a small offset plus extra noise (e.g. sensor recalibration)
     print("Applying F22 drift...")
     v2_df["F22"] = v2_df["F22"] + 1.5 + rng.normal(scale=2.0, size=len(v2_df))
 
-    # CHANGE 3: Status drift — more "error" values in F1 (upstream system degradation)
+    # CHANGE 3: Status drift, more "error" values in F1 (upstream system degradation)
     print("Applying F1 status drift...")
     flip = rng.random(len(v2_df)) < 0.15
     v2_df.loc[flip & v2_df["F1"].notna(), "F1"] = "error"

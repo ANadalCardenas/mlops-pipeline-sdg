@@ -3,7 +3,7 @@ Computes multiclass classification metrics and generates evaluation plots for
 a fitted sklearn model.
 
 `evaluate_model` returns a dict with keys: accuracy, precision, recall, f1,
-roc_auc — computed via sklearn.metrics on the held-out test set. Precision,
+roc_auc, computed via sklearn.metrics on the held-out test set. Precision,
 recall and F1 are macro-averaged (every class weighs the same, so the minority
 class counts as much as the others) and ROC AUC is one-vs-rest, macro-averaged.
 
@@ -49,7 +49,7 @@ def evaluate_model(model, X_test, y_test) -> dict:
 def generate_evaluation_plots(model, X_test, y_test, output_dir: str) -> None:
     os.makedirs(output_dir, exist_ok=True)
 
-    # Confusion matrix — shows absolute counts per (true class, predicted class)
+    # Confusion matrix: shows absolute counts per (true class, predicted class)
     ConfusionMatrixDisplay.from_estimator(model, X_test, y_test)
     plt.savefig(os.path.join(output_dir, "confusion_matrix.png"))
     plt.close()

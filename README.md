@@ -18,11 +18,11 @@ flowchart TD
     B --> C[Register as Production\nin MLflow Model Registry]
     C --> D[Model deployed\nreal-world data starts drifting]
 
-    D --> E[New data arrives v2\nmore rows, more class D, F22 drift...]
+    D --> E[New data arrives v2\n+40% rows, more class D, F22 and F1 drift]
     E --> F[dvc add + dvc push\nData versioned in Cloudflare R2]
     F --> G[Open PR]
 
-    G --> H[GitHub Actions — PR Validation]
+    G --> H[GitHub Actions: PR Validation]
 
     H --> I[Train candidate\nPR branch → registered]
     H --> J[Train baseline\nv1 data from main]
@@ -30,13 +30,13 @@ flowchart TD
     I --> K[compare.py\nDelta per metric\nBETTER / WORSE verdict]
     J --> K
 
-    K -- BETTER --> S[Candidate → Staging]
-    K -- WORSE --> X[CI fails\nmerge blocked]
+    K -->|BETTER| S[Candidate → Staging]
+    K -->|WORSE| X[CI fails\nmerge blocked]
     K --> L[Post validation report\nas PR comment]
     K --> N[Upload artifacts\nto CI run]
 
     S --> O{PR approved?}
-    O -- Yes --> P[Merge to main]
+    O -->|Yes| P[Merge to main]
     P --> Q[CI promotes\nStaging → Production]
 ```
 
@@ -84,7 +84,7 @@ flowchart TD
 
 ## Data
 
-`data/v1/sdg.csv` has 500 rows, 30 features (`F1`–`F30`: 10 categorical, 20 numeric), a `Timestamp` and the `Target` class. Classes A, B and C have ~160 rows each; class D only 24 (~5%).
+`data/v1/sdg.csv` has 500 rows, 30 features (`F1` to `F30`: 10 categorical, 20 numeric), a `Timestamp` and the `Target` class. Classes A, B and C have ~160 rows each; class D only 24 (~5%).
 
 Findings from the exploratory analysis that shape the pipeline:
 
