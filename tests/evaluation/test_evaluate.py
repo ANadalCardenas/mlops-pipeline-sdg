@@ -19,7 +19,7 @@ def test_evaluate_model_returns_expected_metric_keys_and_ranges():
 
     metrics = evaluate_model(model, X, y)
 
-    assert set(metrics) == {"accuracy", "precision", "recall", "f1", "roc_auc"}
+    assert set(metrics) == {"accuracy", "precision", "recall", "f1", "roc_auc", "recall_D"}
     assert all(0.0 <= v <= 1.0 for v in metrics.values())
 
 

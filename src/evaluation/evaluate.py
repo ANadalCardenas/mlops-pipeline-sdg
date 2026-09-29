@@ -3,9 +3,11 @@ Computes multiclass classification metrics and generates evaluation plots for
 a fitted sklearn model.
 
 `evaluate_model` returns a dict with keys: accuracy, precision, recall, f1,
-roc_auc, computed via sklearn.metrics on the held-out test set. Precision,
-recall and F1 are macro-averaged (every class weighs the same, so the minority
-class counts as much as the others) and ROC AUC is one-vs-rest, macro-averaged.
+roc_auc, recall_D, computed via sklearn.metrics on the held-out test set.
+Precision, recall and F1 are macro-averaged (every class weighs the same, so the
+minority class counts as much as the others) and ROC AUC is one-vs-rest,
+macro-averaged. recall_D is the recall of the minority class D alone, reported
+separately because the macro average can hide that the model never predicts it.
 
 `generate_evaluation_plots` saves three PNG files to the specified output
 directory:
@@ -32,6 +34,9 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+# Minority class (~5% of rows), whose recall is reported on its own
+MINORITY_CLASS = "D"
+
 
 def evaluate_model(model, X_test, y_test) -> dict:
     y_pred = model.predict(X_test)
@@ -43,6 +48,10 @@ def evaluate_model(model, X_test, y_test) -> dict:
         "recall": recall_score(y_test, y_pred, average="macro", zero_division=0),
         "f1": f1_score(y_test, y_pred, average="macro", zero_division=0),
         "roc_auc": roc_auc_score(y_test, y_prob, multi_class="ovr", average="macro", labels=model.classes_),
+        # Share of the real D rows that the model predicted as D
+        f"recall_{MINORITY_CLASS}": recall_score(
+            y_test, y_pred, labels=[MINORITY_CLASS], average="macro", zero_division=0
+        ),
     }
 
 
