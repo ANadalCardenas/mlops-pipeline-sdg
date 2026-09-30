@@ -1,216 +1,210 @@
 # MLOps SDG Pipeline
 
-An end-to-end MLOps pipeline for a 4-class classification problem (`Target` ∈ A, B, C, D) on a tabular dataset of 30 anonymised features. It includes: data versioning, experiment tracking, CI-driven model comparison, model registry with automatic promotion, and Docker packaging for inference.
-
-Training a classifier is the easy part. The harder problem is what happens *after* the first model is deployed: data evolves, models degrade silently, and teams need a reliable way to know whether a change makes the model better or worse before it reaches production.
-
-This project builds the infrastructure that answers those questions automatically, on every pull request.
-
-The model is a multiclass `LogisticRegression`: it outputs one probability per class (A, B, C, D) and predicts the most likely one.
+Este proyecto entrena un modelo que **adivina a qué grupo (A, B, C o D) pertenece cada fila** de una tabla de datos. Además, lo hace de forma **automática y controlada**: cada vez que alguien propone un cambio, el sistema entrena un modelo nuevo, lo compara con el que ya se usa y solo lo pone en uso si es mejor.
 
 ---
 
-## Pipeline overview
+## 1. Qué intentamos adivinar
 
-```mermaid
-flowchart TD
-    A[v1 data available] --> B[Train initial model\non v1 data]
-    B --> C[Register as Production\nin MLflow Model Registry]
-    C --> D[Model deployed\nreal-world data starts drifting]
+Los datos están en `data/v1/sdg.csv`: una tabla de **500 filas**. La última columna, **`Target`**, es lo que queremos adivinar. Tiene 4 valores posibles:
 
-    D --> E[New data arrives v2\n+40% rows, more class D, F22 and F1 drift]
-    E --> F[dvc add + dvc push\nData versioned in Cloudflare R2]
-    F --> G[Open PR]
+| Grupo | Filas | % del total |
+|---|---|---|
+| A | 164 | 33% |
+| B | 155 | 31% |
+| C | 157 | 31% |
+| D | 24 | **5%** (hay muy pocas) |
 
-    G --> H[GitHub Actions: PR Validation]
-
-    H --> I[Train candidate\nPR branch → registered]
-    H --> J[Train baseline\nv1 data from main]
-
-    I --> K[compare.py\nDelta per metric\nBETTER / WORSE verdict]
-    J --> K
-
-    K -->|BETTER| S[Candidate → Staging]
-    K -->|WORSE| X[CI fails\nmerge blocked]
-    K --> L[Post validation report\nas PR comment]
-    K --> N[Upload artifacts\nto CI run]
-
-    S --> O{PR approved?}
-    O -->|Yes| P[Merge to main]
-    P --> Q[CI promotes\nStaging → Production]
-```
+No sabemos qué significa cada grupo: los datos vienen anónimos.
 
 ---
 
-## Tech stack
+## 2. Estudio de los datos
 
-| Layer | Tool |
+Antes de entrenar, revisamos las 31 columnas (`Timestamp` y de `F1` a `F30`) para decidir cuáles usar.
+
+### La calidad de los datos es buena
+
+- No hay filas repetidas.
+- No hay valores extraños o exagerados.
+- Casi todas las columnas tienen solo un 1% de huecos (valores vacíos). El modelo los rellena solo.
+
+### El descubrimiento principal: solo una columna sirve de verdad
+
+**La columna `F22` es la única que ayuda a adivinar el grupo.** Cuanto más alto es su valor, más "alta" es la letra:
+
+| Si `F22` vale más o menos... | ...casi siempre es el grupo |
 |---|---|
-| Data versioning | DVC + Cloudflare R2 |
-| Experiment tracking | MLflow hosted on DagsHub |
-| Model registry | MLflow Model Registry (aliases `Staging` / `Production`) |
-| CI/CD | GitHub Actions |
-| Containerisation | Docker (inference image via `Dockerfile.inference`) |
-| Prediction store | SQL database via SQLAlchemy (SQLite by default, PostgreSQL via `DATABASE_URL`) |
-| ML | scikit-learn |
-| Testing | pytest |
-| Language | Python 3.11 |
+| 10 | A |
+| 19 | B |
+| 31 | C |
+| 40 | D |
 
----
+No es perfecto: entre grupos vecinos (A y B, B y C, C y D) hay casos que se mezclan. Pero nunca se confunde A con D, porque están muy lejos.
 
-## Project structure
+Las otras columnas **no tienen relación con el grupo**. Es como intentar adivinar la edad de una persona: si sabes su fecha de nacimiento, lo tienes; saber su color favorito no ayuda y puede despistar.
 
-```
-├── src/
-│   ├── data/           # Dataset loading and versioning logic
-│   ├── features/       # Feature selection (excluded columns) and preprocessing pipeline
-│   ├── training/       # Model training and MLflow logging
-│   ├── evaluation/     # Metrics, plots, and model comparison
-│   ├── inference/      # Production model inference and prediction logging
-│   └── utils/          # Shared I/O helpers
-├── tests/              # Unit tests, mirrors the src/ layout above
-├── pipelines/
-│   └── orchestration.py   # Single CLI entrypoint for the full pipeline
-├── data/
-│   ├── v1.dvc             # Pointer to v1 dataset in R2
-│   ├── v2.dvc             # Pointer to v2 dataset in R2
-│   └── generate_v2.py     # Builds the drifted v2 dataset from v1
-├── Dockerfile.inference   # Image for running Production model inference
-└── .github/workflows/
-    ├── pr_validation.yml  # CI: train, compare, comment, Staging → Production
-    └── tests.yml          # CI: run the pytest suite
-```
+### Columnas que hemos quitado (y por qué)
 
----
-
-## Data
-
-`data/v1/sdg.csv` has 500 rows, 30 features (`F1` to `F30`: 10 categorical, 20 numeric), a `Timestamp` and the `Target` class. Classes A, B and C have ~160 rows each; class D only 24 (~5%).
-
-Findings from the exploratory analysis that shape the pipeline:
-
-- **`F22` carries almost all the signal**: its class means are ~10 / 19 / 31 / 40 for A / B / C / D.
-- **`Timestamp` is excluded (leakage)**: the month alone predicts the class with 94% accuracy (Jan → A, Apr → B, Jul → C, Oct → D). This is an artefact of how the data was generated, not a real pattern.
-- **`F17` is excluded**: 90% of its values are missing.
-- **`F4`, `F7`, `F8`, `F11`, `F13` are excluded**: job titles with ~110 unique values each in 500 rows and no relation to the target.
-
-The excluded columns live in `EXCLUDED_COLUMNS` in `src/features/build_features.py`. Because training drops them before fitting, they are not part of the model signature either: inference inputs don't need them.
-
-Since the target is multiclass, precision, recall and F1 are **macro-averaged** (the minority class D weighs as much as the others) and ROC AUC is **one-vs-rest, macro-averaged**.
-
-### Data versioning
-
-- **v1**: the original data, representing the state at initial deployment
-- **v2**: a derived dataset simulating drift: +40% rows, more class D, an offset and extra noise on `F22`, more `error` values in `F1` (see `data/README.md`)
-
-Data files are never committed to Git. DVC stores a small metadata pointer (`.dvc` file) in the repository while the actual CSV files live in Cloudflare R2.
-
----
-
-## CI/CD workflow
-
-### Tests
-
-On every pull request (opened, synchronized, or reopened), the `tests.yml` workflow installs dependencies and runs the `pytest` suite in `tests/`. It's fully hermetic (no DVC pull and no MLflow/DagsHub secrets required) since the tests mock the dataset, point MLflow at a local file store and write predictions to a temporary SQLite file.
-
-### Model validation and promotion
-
-When a PR is opened or updated, GitHub Actions automatically:
-
-1. Trains the **candidate model** on the PR branch and registers it in the MLflow Model Registry (without alias)
-2. Checks out `main` and trains the **baseline model** on v1 data
-3. Runs `src/evaluation/compare.py` to compute metric deltas and apply a **BETTER / WORSE OR EQUAL** verdict (candidate F1 and ROC AUC must both be ≥ baseline). If the verdict is not BETTER, **the job fails** and, with branch protection enabled, the PR can't be merged
-4. Only if the candidate won: moves the `Staging` alias to the candidate version
-5. Posts the validation report as a PR comment (updated in place on re-runs, and also posted when the check fails)
-6. Uploads all reports as downloadable CI artifacts
-
-When the PR is merged into `main`, the `promote` job moves the `Production` alias to the version marked as `Staging`. Only a model that won the comparison and was reviewed reaches production.
-
----
-
-## Model registry
-
-The MLflow Model Registry governs which version of `sdg-model` is deployed at any point in time, using aliases:
-
-| Alias | Meaning |
+| Columna | Por qué la quitamos |
 |---|---|
-| `Staging` | Won the comparison on a PR, not yet merged |
-| `Production` | The currently deployed model |
+| `Timestamp` (fecha y hora) | **Hace trampa.** El mes coincide casi siempre con el grupo (enero = A, abril = B, julio = C, octubre = D). Parece un efecto de cómo se crearon los datos, no algo real. Si la usáramos, el modelo parecería perfecto en las pruebas y fallaría en la vida real |
+| `F17` | Está **vacía en el 90%** de las filas. No se puede aprender de una columna casi vacía |
+| `F4`, `F7`, `F8`, `F11`, `F13` | Son **nombres de profesiones** ("Nurse", "Pilot"...), con más de 100 valores distintos cada una en solo 500 filas. No tienen relación con el grupo y solo añaden ruido |
 
-The very first `Production` version has to be created once by hand (there is no baseline to compare against yet):
+### Columnas que usamos
 
-```bash
-python pipelines/orchestration.py --data-version v1 --experiment-name sdg-main \
-  --run-name initial-production --output-dir reports/initial \
-  --register-model --model-stage Production
-```
+El modelo usa **las otras 24 columnas**: `F22` y otras 23 que, aunque no ayudan, tampoco dan problemas claros. Son estas:
 
----
+| Columnas | Qué contienen |
+|---|---|
+| `F22` | La importante |
+| `F1`, `F2`, `F14`, `F16`, `F19` | Estados: `success`, `warning`, `error` o `unknown` |
+| `F3`, `F6`, `F9`, `F12`, `F18`, `F21`, `F24`, `F27` | Números, casi siempre 0 |
+| `F5`, `F10`, `F15`, `F20`, `F25`, `F30` | Números que se parecen mucho entre sí (son casi la misma columna repetida) |
+| `F23`, `F26`, `F28`, `F29` | Números sin relación con el grupo |
 
-## Inference
+**Por qué no usamos solo `F22`**, si es la única útil: con solo `F22` el modelo acierta un poco más, pero depender de una sola columna es arriesgado. Si un día `F22` llega vacía o cambia su forma de medirse, el modelo dejaría de funcionar. Antes de dar ese paso hay que saber qué es `F22` y si siempre estará disponible.
 
-`src/inference/predict.py` loads `sdg-model@Production` from the MLflow Model Registry, predicts the class of one record, and inserts the result as a row of a `predictions` table. Each row stores `prediction_id`, `timestamp`, `model_version`, `input_data` (as JSON), and `prediction`.
+### Cuánto acierta el modelo
 
-The `Production` alias is resolved to a concrete version before the model is loaded, so the stored `model_version` is always the version that produced the prediction.
+| Columnas usadas | Aciertos |
+|---|---|
+| Todas (menos `Timestamp`) | 67 de cada 100 |
+| **Las 24 que usamos ahora** | **72 de cada 100** |
+| Solo `F22` | 77 de cada 100 |
 
-The database is taken from `--db-url` or the `DATABASE_URL` environment variable (default: SQLite file `predictions/predictions.db`), so the same code works with a local SQLite file or a managed PostgreSQL by changing only the URL.
+Estas cifras son la media de 5 pruebas distintas, para que no dependan de la suerte. Al entrenar con el pipeline se hace una sola prueba con 100 filas, así que el resultado puede variar unos puntos (por ejemplo, 66 en vez de 72).
 
-```bash
-# Build the inference image
-docker build -f Dockerfile.inference -t sdg-inference .
+El grupo **D** es el punto débil: como hay tan pocas filas, el modelo casi nunca lo acierta.
 
-# Run one inference; the SQLite file is kept in ./predictions on the host.
-# --user runs the container as your user, so predictions.db is owned by you and not by root;
-# HOME=/tmp gives that user a writable home directory inside the container
-docker run --rm \
-  --user "$(id -u):$(id -g)" \
-  -e HOME=/tmp \
-  --env-file .env \
-  -v "$(pwd)/predictions:/app/predictions" \
-  sdg-inference \
-  --input '{"F1": "error", "F2": "success", "F3": 0.0, "F5": 0.3418, "F6": 0.0, "F9": 0.0, "F10": 0.5333, "F12": 0.0, "F14": "success", "F15": 0.7687, "F16": "success", "F18": 0.0, "F19": "unknown", "F20": null, "F21": 0.0, "F22": 17.7918, "F23": -73.3180, "F24": 0.0, "F25": 0.2662, "F26": 103.2730, "F27": 0.0, "F28": 108.1766, "F29": -98.5651, "F30": 0.1691}'
+### Preguntas pendientes para el negocio
 
-# Look at the stored predictions
-sqlite3 predictions/predictions.db "SELECT * FROM predictions;"
-```
-
-The MLflow/DagsHub credentials (and optionally `DATABASE_URL`) are passed through from `.env`.
+1. ¿Qué significan los grupos A, B, C y D? ¿Tienen un orden, como niveles de algo?
+2. ¿Qué es la columna `F22`? ¿Puede llegar vacía?
+3. ¿Es grave no detectar un grupo D?
+4. ¿Qué representa `Timestamp`?
+5. ¿Hay más datos? 500 filas, y solo 24 del grupo D, son pocas.
 
 ---
 
-## Training locally
+## 3. Cómo medimos si el modelo es bueno
+
+| Medida | Qué significa |
+|---|---|
+| **Accuracy** | De cada 100 filas, cuántas acierta |
+| **F1** | Una nota que combina "cuántas acierta" y "cuántas se le escapan". Se calcula para cada grupo y se hace la media, así el grupo D cuenta igual que los demás aunque tenga menos filas |
+| **ROC AUC** | Si el modelo está "seguro" cuando acierta. De 0,5 (adivina al azar) a 1 (perfecto) |
+| **Recall D** | De las filas que son D, cuántas detecta. Se muestra aparte para que no quede escondido |
+
+Un modelo nuevo **solo se considera mejor si su F1 y su ROC AUC son iguales o más altos** que los del modelo actual.
+
+---
+
+## 4. Cómo funciona el proceso automático
+
+1. Alguien propone un cambio en GitHub (un *pull request*).
+2. GitHub entrena **dos modelos**: uno con el cambio y otro con la versión actual.
+3. Los compara y escribe un comentario en el *pull request* con una tabla de resultados.
+4. Si el modelo nuevo es **peor**, la comprobación sale en rojo: **no se debe aprobar el cambio**.
+5. Si es **mejor**, se marca como candidato (**Staging**).
+6. Cuando se aprueba el cambio, el candidato pasa a ser el modelo en uso (**Production**) automáticamente.
+
+**Dónde se guarda cada cosa:**
+
+| Servicio | Qué guarda |
+|---|---|
+| **GitHub** | El código |
+| **Cloudflare R2** | Los datos (con DVC, que guarda cada versión sin borrar las anteriores) |
+| **DagsHub** | Los modelos entrenados, sus resultados y cuál está en uso |
+
+**Versiones de los datos:** `v1` son los datos originales. `v2` es una versión creada para simular que llegan datos nuevos (más filas, más grupo D y pequeños cambios en `F22` y `F1`). Los datos de `v2` son en parte copias de `v1`, así que sus resultados salen mejor de lo que serían en la realidad.
+
+---
+
+## 5. Cómo usarlo
+
+Todos los comandos se ejecutan desde la carpeta del proyecto.
+
+### Preparar el proyecto (solo la primera vez)
 
 ```bash
-# Install dependencies
+git clone git@github.com:ANadalCardenas/mlops-pipeline-sdg.git
+cd mlops-pipeline-sdg
+
+# Crear el entorno de Python e instalar lo necesario
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
-# Pull versioned data
+# Poner las claves de Cloudflare R2 y descargar los datos
+dvc remote modify storage --local access_key_id TU_ACCESS_KEY_ID
+dvc remote modify storage --local secret_access_key TU_SECRET_ACCESS_KEY
 dvc pull
-
-# Train on v1
-python pipelines/orchestration.py \
-  --data-version v1 \
-  --experiment-name sdg-local \
-  --run-name my-run \
-  --output-dir reports/local
-
-# Compare candidate vs baseline
-python src/evaluation/compare.py \
-  --candidate reports/candidate/train_metrics.json \
-  --baseline  reports/baseline/train_metrics.json \
-  --output-dir reports/
 ```
 
----
+Para usar DagsHub, crea un fichero `.env` en la carpeta del proyecto con estas tres líneas:
 
-## Running tests
+```
+MLFLOW_TRACKING_URI=https://dagshub.com/aina.nadal/mlops-pipeline-sdg.mlflow
+MLFLOW_TRACKING_USERNAME=tu_usuario_de_dagshub
+MLFLOW_TRACKING_PASSWORD=tu_token_de_dagshub
+```
+
+### Comprobar que todo funciona
 
 ```bash
-# Install dependencies (includes pytest)
-pip install -r requirements.txt
-
-# Run the test suite
+source .venv/bin/activate
 pytest
 ```
 
-The suite is hermetic: it doesn't need `dvc pull` or MLflow/DagsHub credentials.
+### Entrenar un modelo en tu ordenador
+
+No toca DagsHub ni el modelo en uso: los resultados se quedan en tu ordenador.
+
+```bash
+source .venv/bin/activate
+python pipelines/orchestration.py --data-version v1 --experiment-name sdg-local --run-name prueba --output-dir reports/local
+```
+
+Los resultados quedan en `reports/local/`: las medidas en `train_metrics.json` y las gráficas en `figures/`.
+
+### Hacer una predicción
+
+Usa el modelo que está en uso (**Production**) en DagsHub. Necesita el fichero `.env` y Docker.
+
+```bash
+# Crear la imagen (solo la primera vez, o si cambia el código)
+docker build -f Dockerfile.inference -t sdg-inference .
+
+# Hacer una predicción
+mkdir -p predictions
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file .env \
+  -v "$(pwd)/predictions:/app/predictions" \
+  sdg-inference \
+  --input '{"F1": "error", "F2": "success", "F3": 0.0, "F5": 0.3418, "F6": 0.0, "F9": 0.0, "F10": 0.5333, "F12": 0.0, "F14": "success", "F15": 0.7687, "F16": "success", "F18": 0.0, "F19": "unknown", "F20": null, "F21": 0.0, "F22": 17.7918, "F23": -73.3180, "F24": 0.0, "F25": 0.2662, "F26": 103.2730, "F27": 0.0, "F28": 108.1766, "F29": -98.5651, "F30": 0.1691}'
+```
+
+El resultado sale por pantalla (`"prediction": "B"`) y se guarda en `predictions/predictions.db`.
+
+Para probar otros casos, cambia el valor de `"F22"`: por ejemplo, con `"F22": 40.0` sale D. Los números tienen que llevar decimales (`40.0`, no `40`).
+
+### Ver las predicciones guardadas
+
+```bash
+source .venv/bin/activate
+python -c "import pandas as pd; print(pd.read_sql('SELECT timestamp, model_version, prediction FROM predictions', 'sqlite:///predictions/predictions.db'))"
+```
+
+---
+
+## 6. Carpetas del proyecto
+
+| Carpeta | Qué hay |
+|---|---|
+| `src/` | El código: cargar datos, preparar columnas, entrenar, evaluar y predecir |
+| `pipelines/orchestration.py` | El programa que ejecuta todo el entrenamiento |
+| `tests/` | Las pruebas automáticas |
+| `data/` | Los punteros a los datos (`v1.dvc`, `v2.dvc`) y el script que crea `v2` |
+| `.github/workflows/` | Los procesos automáticos de GitHub |
+| `Dockerfile.inference` | Las instrucciones para crear la imagen de predicción |
