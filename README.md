@@ -1,19 +1,19 @@
 # MLOps SDG Pipeline
 
-Este proyecto entrena un modelo que **adivina a qué grupo (A, B, C o D) pertenece cada fila** de una tabla de datos. Además, lo hace de forma **automática y controlada**: cada vez que alguien propone un cambio, el sistema entrena un modelo nuevo, lo compara con el que ya se usa y solo lo pone en uso si es mejor.
+Este proyecto entrena un modelo que adivina a qué grupo (A, B, C o D) pertenece cada fila de una tabla de datos. Además, lo hace de forma automática y controlada: cada vez que alguien propone un cambio, el sistema entrena un modelo nuevo, lo compara con el que ya se usa y solo lo pone en uso si es mejor.
 
 ---
 
 ## 1. Qué intentamos adivinar
 
-Los datos están en `data/v1/sdg.csv`: una tabla de **500 filas**. La última columna, **`Target`**, es lo que queremos adivinar. Tiene 4 valores posibles:
+Los datos están en `data/v1/sdg.csv`: una tabla de 500 filas. La última columna, `Target`, es lo que queremos adivinar. Tiene 4 valores posibles:
 
 | Grupo | Filas | % del total |
 |---|---|---|
 | A | 164 | 33% |
 | B | 155 | 31% |
 | C | 157 | 31% |
-| D | 24 | **5%** (hay muy pocas) |
+| D | 24 | 5% (hay muy pocas) |
 
 
 ---
@@ -28,9 +28,9 @@ Antes de entrenar, revisamos las 31 columnas (`Timestamp` y de `F1` a `F30`) par
 - No hay valores extraños o exagerados.
 - Casi todas las columnas tienen solo un 1% de valores vacíos.
 
-### Observaciòn importante
+### Observación importante
 
-**Parece ser que la columna `F22` es la única que ayuda a adivinar el grupo.** Cuanto más alto es su valor, más "alta" es la letra:
+Parece ser que la columna `F22` es la única que ayuda a adivinar el grupo. Cuanto más alto es su valor, más "alta" es la letra:
 
 | Si `F22` vale más o menos... | ...casi siempre es el grupo |
 |---|---|
@@ -41,19 +41,19 @@ Antes de entrenar, revisamos las 31 columnas (`Timestamp` y de `F1` a `F30`) par
 
 No es perfecto: entre grupos vecinos (A y B, B y C, C y D) hay casos que se mezclan. Pero nunca se confunde A con D, porque están muy lejos.
 
-Parece que las otras columnas **no tienen relación con el grupo**. 
+Parece que las otras columnas no tienen relación con el grupo. 
 
 ### Columnas que se han decidido quitar:
 
 | Columna | Por qué la quitamos |
 |---|---|
 | `Timestamp` (fecha y hora) | El mes coincide casi siempre con el grupo (enero = A, abril = B, julio = C, octubre = D). Parece un efecto de cómo se crearon los datos, no algo real. Si la usáramos, el modelo parecería perfecto en las pruebas y fallaría en la vida real |
-| `F17` | Está **vacía en el 90%** de las filas. No se puede aprender de una columna casi vacía |
-| `F4`, `F7`, `F8`, `F11`, `F13` | Son **nombres de profesiones** ("Nurse", "Pilot"...), con más de 100 valores distintos. Se decide quitarlas porrque no tienen relación con el grupo y solo añaden ruido |
+| `F17` | Está vacía en el 90% de las filas. No se puede aprender de una columna casi vacía |
+| `F4`, `F7`, `F8`, `F11`, `F13` | Son nombres de profesiones ("Nurse", "Pilot"...), con más de 100 valores distintos. Se decide quitarlas porque no tienen relación con el grupo y solo añaden ruido |
 
 ### Columnas que se usan:
 
-El modelo usa **las otras 24 columnas**: `F22` y otras 23 que, aunque no ayudan, tampoco dan problemas claros. Son estas:
+El modelo usa las otras 24 columnas: `F22` y otras 23 que, aunque no ayudan, tampoco dan problemas claros. Son estas:
 
 | Columnas | Qué contienen |
 |---|---|
@@ -63,50 +63,50 @@ El modelo usa **las otras 24 columnas**: `F22` y otras 23 que, aunque no ayudan,
 | `F5`, `F10`, `F15`, `F20`, `F25`, `F30` | Números que se parecen mucho entre sí (son casi la misma columna repetida) |
 | `F23`, `F26`, `F28`, `F29` | Números sin relación con el grupo |
 
-**Por qué no se ha decidido usar solo la `F22`**, si es la única útil: con solo `F22` el modelo acierta un poco más, pero depender de una sola columna es arriesgado. Si un día `F22` llega vacía o cambia su forma de medirse, el modelo dejaría de funcionar. Antes de dar ese paso hay que saber qué es `F22` y si siempre estará disponible.
+Por qué no se ha decidido usar solo la `F22`, si es la única útil: con solo `F22` el modelo acierta un poco más, pero depender de una sola columna es arriesgado. Si un día `F22` llega vacía o cambia su forma de medirse, el modelo dejaría de funcionar. Antes de dar ese paso hay que saber qué es `F22` y si siempre estará disponible.
 
 ### Cuánto acierta el modelo
 
 | Columnas usadas | Aciertos |
 |---|---|
 | Todas (menos `Timestamp`) | 67 de cada 100 |
-| **Las 24 que usamos ahora** | **72 de cada 100** |
+| Las 24 que usamos ahora | 72 de cada 100 |
 | Solo `F22` | 77 de cada 100 |
 
-El grupo **D** es el punto débil: como hay tan pocas filas, el modelo casi nunca lo acierta.
+El grupo D es el punto débil: como hay tan pocas filas, el modelo casi nunca lo acierta.
 
 
 ## 3. Cómo medimos si el modelo es bueno
 
 | Medida | Qué significa |
 |---|---|
-| **Accuracy** | De cada 100 filas, cuántas acierta |
-| **F1** | Una nota que combina "cuántas acierta" y "cuántas se le escapan". Se calcula para cada grupo y se hace la media, así el grupo D cuenta igual que los demás aunque tenga menos filas |
-| **ROC AUC** | Si el modelo está "seguro" cuando acierta. De 0,5 (adivina al azar) a 1 (perfecto) |
-| **Recall D** | De las filas que son D, cuántas detecta. Se muestra aparte para que no quede escondido |
+| Accuracy | De cada 100 filas, cuántas acierta |
+| F1 | Una nota que combina "cuántas acierta" y "cuántas se le escapan". Se calcula para cada grupo y se hace la media, así el grupo D cuenta igual que los demás aunque tenga menos filas |
+| ROC AUC | Si el modelo está "seguro" cuando acierta. De 0,5 (adivina al azar) a 1 (perfecto) |
+| Recall D | De las filas que son D, cuántas detecta. Se muestra aparte para que no quede escondido |
 
-Un modelo nuevo **solo se considera mejor si su F1 y su ROC AUC son iguales o más altos** que los del modelo actual.
+Un modelo nuevo solo se considera mejor si su F1 y su ROC AUC son iguales o más altos que los del modelo actual.
 
 ---
 
 ## 4. Cómo funciona el proceso automático
 
 1. Alguien propone un cambio en GitHub (un *pull request*).
-2. GitHub entrena **dos modelos**: uno con el cambio y otro con la versión actual.
+2. GitHub entrena dos modelos: uno con el cambio y otro con la versión actual.
 3. Los compara y escribe un comentario en el *pull request* con una tabla de resultados.
-4. Si el modelo nuevo es **peor**, la comprobación sale en rojo: **no se debe aprobar el cambio**.
-5. Si es **mejor**, se marca como candidato (**Staging**).
-6. Cuando se aprueba el cambio, el candidato pasa a ser el modelo en uso (**Production**) automáticamente.
+4. Si el modelo nuevo es peor, la comprobación sale en rojo: no se debe aprobar el cambio.
+5. Si es mejor, se marca como candidato (Staging).
+6. Cuando se aprueba el cambio, el candidato pasa a ser el modelo en uso (Production) automáticamente.
 
-**Dónde se guarda cada cosa:**
+Dónde se guarda cada cosa:
 
 | Servicio | Qué guarda |
 |---|---|
-| **GitHub** | El código |
-| **Cloudflare R2** | Los datos (con DVC, que guarda cada versión sin borrar las anteriores) |
-| **DagsHub** | Los modelos entrenados, sus resultados y cuál está en uso |
+| GitHub | El código |
+| Cloudflare R2 | Los datos (con DVC, que guarda cada versión sin borrar las anteriores) |
+| DagsHub | Los modelos entrenados, sus resultados y cuál está en uso |
 
-**Versiones de los datos:** `v1` son los datos originales. `v2` es una versión creada para simular que llegan datos nuevos (más filas, más grupo D y pequeños cambios en `F22` y `F1`).
+Versiones de los datos: `v1` son los datos originales. `v2` es una versión creada para simular que llegan datos nuevos (más filas, más grupo D y pequeños cambios en `F22` y `F1`).
 
 ---
 
@@ -159,7 +159,7 @@ Los resultados quedan en `reports/local/`: las medidas en `train_metrics.json` y
 
 ### Hacer una predicción
 
-Usa el modelo que está en uso (**Production**) en DagsHub. Necesita el fichero `.env` y Docker.
+Usa el modelo que está en uso (Production) en DagsHub. Necesita el fichero `.env` y Docker.
 
 ```bash
 # Crear la imagen (solo la primera vez, o si cambia el código)
