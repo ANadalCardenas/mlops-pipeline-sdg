@@ -4,9 +4,9 @@ Este proyecto entrena un modelo que adivina a qué grupo (A, B, C o D) pertenece
 
 ---
 
-## 1. Qué intentamos adivinar
+## 1. Qué se adivina
 
-Los datos están en `data/v1/sdg.csv`: una tabla de 500 filas. La última columna, `Target`, es lo que queremos adivinar. Tiene 4 valores posibles:
+Los datos están en `data/v1/sdg.csv`: una tabla de 500 filas. La última columna, `Target`, es lo que se quiere adivinar. Tiene 4 valores posibles:
 
 | Grupo | Filas | % del total |
 |---|---|---|
@@ -20,7 +20,7 @@ Los datos están en `data/v1/sdg.csv`: una tabla de 500 filas. La última column
 
 ## 2. Estudio de los datos
 
-Antes de entrenar, revisamos las 31 columnas (`Timestamp` y de `F1` a `F30`) para decidir cuáles usar.
+Antes de entrenar, se han revisado las 31 columnas (`Timestamp` y de `F1` a `F30`) para decidir cuáles usar.
 
 ### La calidad de los datos es buena
 
@@ -45,9 +45,9 @@ Parece que las otras columnas no tienen relación con el grupo.
 
 ### Columnas que se han decidido quitar:
 
-| Columna | Por qué la quitamos |
+| Columna | Por qué se quita |
 |---|---|
-| `Timestamp` (fecha y hora) | El mes coincide casi siempre con el grupo (enero = A, abril = B, julio = C, octubre = D). Parece un efecto de cómo se crearon los datos, no algo real. Si la usáramos, el modelo parecería perfecto en las pruebas y fallaría en la vida real |
+| `Timestamp` (fecha y hora) | El mes coincide casi siempre con el grupo (enero = A, abril = B, julio = C, octubre = D). Parece un efecto de cómo se crearon los datos, no algo real. Si se usara, el modelo parecería perfecto en las pruebas y fallaría en la vida real |
 | `F17` | Está vacía en el 90% de las filas. No se puede aprender de una columna casi vacía |
 | `F4`, `F7`, `F8`, `F11`, `F13` | Son nombres de profesiones ("Nurse", "Pilot"...), con más de 100 valores distintos. Se decide quitarlas porque no tienen relación con el grupo y solo añaden ruido |
 
@@ -70,13 +70,13 @@ Por qué no se ha decidido usar solo la `F22`, si es la única útil: con solo `
 | Columnas usadas | Aciertos |
 |---|---|
 | Todas (menos `Timestamp`) | 67 de cada 100 |
-| Las 24 que usamos ahora | 72 de cada 100 |
+| Las 24 que se usan ahora | 72 de cada 100 |
 | Solo `F22` | 77 de cada 100 |
 
 El grupo D es el punto débil: como hay tan pocas filas, el modelo casi nunca lo acierta.
 
 
-## 3. Cómo medimos si el modelo es bueno
+## 3. Cómo se mide si el modelo es bueno
 
 | Medida | Qué significa |
 |---|---|
@@ -126,17 +126,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Poner las claves de Cloudflare R2 y descargar los datos
-dvc remote modify storage --local access_key_id TU_ACCESS_KEY_ID
-dvc remote modify storage --local secret_access_key TU_SECRET_ACCESS_KEY
+dvc remote modify storage --local access_key_id ACCESS_KEY_ID_DE_R2
+dvc remote modify storage --local secret_access_key SECRET_ACCESS_KEY_DE_R2
 dvc pull
 ```
 
-Para usar DagsHub, crea un fichero `.env` en la carpeta del proyecto con estas tres líneas:
+Para usar DagsHub, hay que crear un fichero `.env` en la carpeta del proyecto con estas tres líneas:
 
 ```
 MLFLOW_TRACKING_URI=https://dagshub.com/aina.nadal/mlops-pipeline-sdg.mlflow
-MLFLOW_TRACKING_USERNAME=tu_usuario_de_dagshub
-MLFLOW_TRACKING_PASSWORD=tu_token_de_dagshub
+MLFLOW_TRACKING_USERNAME=usuario_de_dagshub
+MLFLOW_TRACKING_PASSWORD=token_de_dagshub
 ```
 
 ### Comprobar que todo funciona
