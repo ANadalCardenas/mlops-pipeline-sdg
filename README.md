@@ -15,7 +15,6 @@ Los datos están en `data/v1/sdg.csv`: una tabla de **500 filas**. La última co
 | C | 157 | 31% |
 | D | 24 | **5%** (hay muy pocas) |
 
-No sabemos qué significa cada grupo: los datos vienen anónimos.
 
 ---
 
@@ -27,11 +26,11 @@ Antes de entrenar, revisamos las 31 columnas (`Timestamp` y de `F1` a `F30`) par
 
 - No hay filas repetidas.
 - No hay valores extraños o exagerados.
-- Casi todas las columnas tienen solo un 1% de huecos (valores vacíos). El modelo los rellena solo.
+- Casi todas las columnas tienen solo un 1% de valores vacíos.
 
-### El descubrimiento principal: solo una columna sirve de verdad
+### Observaciòn importante
 
-**La columna `F22` es la única que ayuda a adivinar el grupo.** Cuanto más alto es su valor, más "alta" es la letra:
+**Parece ser que la columna `F22` es la única que ayuda a adivinar el grupo.** Cuanto más alto es su valor, más "alta" es la letra:
 
 | Si `F22` vale más o menos... | ...casi siempre es el grupo |
 |---|---|
@@ -42,17 +41,17 @@ Antes de entrenar, revisamos las 31 columnas (`Timestamp` y de `F1` a `F30`) par
 
 No es perfecto: entre grupos vecinos (A y B, B y C, C y D) hay casos que se mezclan. Pero nunca se confunde A con D, porque están muy lejos.
 
-Las otras columnas **no tienen relación con el grupo**. Es como intentar adivinar la edad de una persona: si sabes su fecha de nacimiento, lo tienes; saber su color favorito no ayuda y puede despistar.
+Parece que las otras columnas **no tienen relación con el grupo**. 
 
-### Columnas que hemos quitado (y por qué)
+### Columnas que se han decidido quitar:
 
 | Columna | Por qué la quitamos |
 |---|---|
-| `Timestamp` (fecha y hora) | **Hace trampa.** El mes coincide casi siempre con el grupo (enero = A, abril = B, julio = C, octubre = D). Parece un efecto de cómo se crearon los datos, no algo real. Si la usáramos, el modelo parecería perfecto en las pruebas y fallaría en la vida real |
+| `Timestamp` (fecha y hora) | El mes coincide casi siempre con el grupo (enero = A, abril = B, julio = C, octubre = D). Parece un efecto de cómo se crearon los datos, no algo real. Si la usáramos, el modelo parecería perfecto en las pruebas y fallaría en la vida real |
 | `F17` | Está **vacía en el 90%** de las filas. No se puede aprender de una columna casi vacía |
-| `F4`, `F7`, `F8`, `F11`, `F13` | Son **nombres de profesiones** ("Nurse", "Pilot"...), con más de 100 valores distintos cada una en solo 500 filas. No tienen relación con el grupo y solo añaden ruido |
+| `F4`, `F7`, `F8`, `F11`, `F13` | Son **nombres de profesiones** ("Nurse", "Pilot"...), con más de 100 valores distintos. Se decide quitarlas porrque no tienen relación con el grupo y solo añaden ruido |
 
-### Columnas que usamos
+### Columnas que se usan:
 
 El modelo usa **las otras 24 columnas**: `F22` y otras 23 que, aunque no ayudan, tampoco dan problemas claros. Son estas:
 
@@ -64,7 +63,7 @@ El modelo usa **las otras 24 columnas**: `F22` y otras 23 que, aunque no ayudan,
 | `F5`, `F10`, `F15`, `F20`, `F25`, `F30` | Números que se parecen mucho entre sí (son casi la misma columna repetida) |
 | `F23`, `F26`, `F28`, `F29` | Números sin relación con el grupo |
 
-**Por qué no usamos solo `F22`**, si es la única útil: con solo `F22` el modelo acierta un poco más, pero depender de una sola columna es arriesgado. Si un día `F22` llega vacía o cambia su forma de medirse, el modelo dejaría de funcionar. Antes de dar ese paso hay que saber qué es `F22` y si siempre estará disponible.
+**Por qué no se ha decidido usar solo la `F22`**, si es la única útil: con solo `F22` el modelo acierta un poco más, pero depender de una sola columna es arriesgado. Si un día `F22` llega vacía o cambia su forma de medirse, el modelo dejaría de funcionar. Antes de dar ese paso hay que saber qué es `F22` y si siempre estará disponible.
 
 ### Cuánto acierta el modelo
 
@@ -74,19 +73,8 @@ El modelo usa **las otras 24 columnas**: `F22` y otras 23 que, aunque no ayudan,
 | **Las 24 que usamos ahora** | **72 de cada 100** |
 | Solo `F22` | 77 de cada 100 |
 
-Estas cifras son la media de 5 pruebas distintas, para que no dependan de la suerte. Al entrenar con el pipeline se hace una sola prueba con 100 filas, así que el resultado puede variar unos puntos (por ejemplo, 66 en vez de 72).
-
 El grupo **D** es el punto débil: como hay tan pocas filas, el modelo casi nunca lo acierta.
 
-### Preguntas pendientes para el negocio
-
-1. ¿Qué significan los grupos A, B, C y D? ¿Tienen un orden, como niveles de algo?
-2. ¿Qué es la columna `F22`? ¿Puede llegar vacía?
-3. ¿Es grave no detectar un grupo D?
-4. ¿Qué representa `Timestamp`?
-5. ¿Hay más datos? 500 filas, y solo 24 del grupo D, son pocas.
-
----
 
 ## 3. Cómo medimos si el modelo es bueno
 
@@ -118,11 +106,11 @@ Un modelo nuevo **solo se considera mejor si su F1 y su ROC AUC son iguales o m�
 | **Cloudflare R2** | Los datos (con DVC, que guarda cada versión sin borrar las anteriores) |
 | **DagsHub** | Los modelos entrenados, sus resultados y cuál está en uso |
 
-**Versiones de los datos:** `v1` son los datos originales. `v2` es una versión creada para simular que llegan datos nuevos (más filas, más grupo D y pequeños cambios en `F22` y `F1`). Los datos de `v2` son en parte copias de `v1`, así que sus resultados salen mejor de lo que serían en la realidad.
+**Versiones de los datos:** `v1` son los datos originales. `v2` es una versión creada para simular que llegan datos nuevos (más filas, más grupo D y pequeños cambios en `F22` y `F1`).
 
 ---
 
-## 5. Cómo usarlo
+## 5. Cómo ejecutarlo
 
 Todos los comandos se ejecutan desde la carpeta del proyecto.
 
@@ -158,9 +146,9 @@ source .venv/bin/activate
 pytest
 ```
 
-### Entrenar un modelo en tu ordenador
+### Entrenar un modelo en local
 
-No toca DagsHub ni el modelo en uso: los resultados se quedan en tu ordenador.
+No toca DagsHub ni el modelo en uso: los resultados se quedan en local.
 
 ```bash
 source .venv/bin/activate
@@ -187,13 +175,13 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp --env-file .env \
 
 El resultado sale por pantalla (`"prediction": "B"`) y se guarda en `predictions/predictions.db`.
 
-Para probar otros casos, cambia el valor de `"F22"`: por ejemplo, con `"F22": 40.0` sale D. Los números tienen que llevar decimales (`40.0`, no `40`).
+
 
 ### Ver las predicciones guardadas
 
 ```bash
 source .venv/bin/activate
-python -c "import pandas as pd; print(pd.read_sql('SELECT timestamp, model_version, prediction FROM predictions', 'sqlite:///predictions/predictions.db'))"
+python -c "import pandas as pd; print(pd.read_sql('SELECT * FROM predictions', 'sqlite:///predictions/predictions.db'))"
 ```
 
 ---
